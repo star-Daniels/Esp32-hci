@@ -1,0 +1,107 @@
+#include "DHT.h"
+#include <WiFi.h>
+#include <FirebaseESP32.h>
+
+#define DHTPIN 4
+#define DHTTYPE DHT11
+
+
+#define luzSolar 5
+
+DHT dht(DHTPIN, DHTTYPE);
+
+
+
+#define WIFI_SSID "Yan"
+#define WIFI_PASSWORD "22222221"
+
+// Defina as credenciais do Firebase
+#define DATABASE_URL "https://granjastar-dc53a-default-rtdb.firebaseio.com/"
+#define API_KEY "AIzaSyAs9bhyCwko9COM7FzI7zwel8MlsefpYq8"
+
+#define EMAIL "querosermelhor789@gmail.com"
+#define PASSWORD "Vaifuncionar489"
+
+
+FirebaseData firebaseData;  
+FirebaseAuth auth;
+
+FirebaseConfig config;
+
+void setup() {
+  Serial.begin(115200);
+    dht.begin();
+
+   WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
+  Serial.print("Conectando ao Wi-Fi...");
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(1000);
+    Serial.print(".");
+  }
+  Serial.println(" Conectado ao Wi-Fi!");
+
+  config.api_key = API_KEY;
+  auth.user.email = EMAIL;
+  auth.user.password = PASSWORD;
+  config.database_url = DATABASE_URL;
+  Firebase.begin(&config, &auth);
+  
+  
+
+  
+  Serial.println("Conectado ao Firebase!");
+
+ 
+
+  pinMode(luzSolar, OUTPUT);
+
+}
+
+void loop() {
+  delay(2000);
+
+  
+  float umidade = dht.readHumidity();
+  float temperatura = dht.readTemperature();
+
+
+  
+  float hic = dht.computeHeatIndex(temperatura, umidade, false);
+
+  if (isnan(umidade) || isnan(temperatura)) {
+        Serial.println("Falha ao ler do sensor DHT!");
+        return;
+    }
+
+  if (Firebase.setFloat(firebaseData, "/dados/temper", temperatura)) {
+    Serial.println("Temperatura enviada com sucesso!");
+  } else {
+    Serial.println("Falha ao enviar temperatura");
+    Serial.println(firebaseData.errorReason());
+  }
+
+  if (Firebase.setFloat(firebaseData, "/dados/index", hic)) {
+    Serial.println("HIC enviada com sucesso!");
+  } else {
+    Serial.println("Falha ao enviar HIC");
+    Serial.println(firebaseData.errorReason());
+  }
+
+  if (Firebase.setFloat(firebaseData, "/dados/umidade", umidade)) {
+    Serial.println("Umidade enviada com sucesso!");
+  } else {
+    Serial.println("Falha ao enviar umidade");
+    Serial.println(firebaseData.errorReason());
+  }
+
+    if (Firebase.get(firebaseData, "/dados/estadoLuz")) {
+    if (firebaseData.dataType() == "boolean") {
+      bool estado = firebaseData.boolData();
+      
+      digitalWrite(luzSolar, estado);
+      
+    } else {
+      Serial.println("Erro ");
+    }
+  }
+}
